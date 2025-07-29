@@ -1,10 +1,10 @@
-class TerminalWords < Formula
+class Sw < Formula
   desc "A command-line dictionary tool written in Rust"
-  homepage "https://github.com/szupzj18/terminal_words"
-  url "https://github.com/szupzj18/terminal_words/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "3bb4449eb71bcc6c7fccb3e32dd862a6b6bee1f2c66dd663a9fae3f4da71d208"
+  homepage "https://github.com/szupzj18/sw"
+  url "https://github.com/szupzj18/sw/archive/refs/tags/v0.1.0.tar.gz"
+  sha256 "replace-with-actual-sha256"
   license "MIT"
-  head "https://github.com/szupzj18/terminal_words.git", branch: "main"
+  head "https://github.com/szupzj18/sw.git", branch: "main"
 
   depends_on "rust" => :build
 
@@ -23,7 +23,7 @@ class TerminalWords < Formula
   end
 
   test do
-    output = shell_output("#{bin}/terminal_words --help")
+    output = shell_output("#{bin}/sw --help")
     assert_match "A command-line dictionary tool", output
   end
 end
