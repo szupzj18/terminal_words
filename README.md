@@ -30,35 +30,33 @@ cargo build --release
 
 Look up a word:
 ```bash
-cargo run -- <word>
-# or after installation
 terminal_words <word>
 ```
 
 Example:
 ```bash
-cargo run -- rust
+terminal_words rust
 ```
 
 ### Detailed Information
 
 Use the `-d` or `--detail` flag to get detailed information including synonyms and antonyms:
 ```bash
-cargo run -- <word> --detail
+terminal_words <word> --detail
 # or
 terminal_words <word> -d
 ```
 
 Example:
 ```bash
-cargo run -- rust --detail
+terminal_words rust --detail
 ```
 
 ## Examples
 
 ### Basic Lookup
 ```bash
-$ cargo run -- rust
+$ terminal_words rust
 Looking up: rust
 
 Word: rust
@@ -72,7 +70,7 @@ Part of speech: noun
 
 ### Detailed Lookup
 ```bash
-$ cargo run -- rust --detail
+$ terminal_words rust --detail
 Looking up: rust
 
 Word: rust
