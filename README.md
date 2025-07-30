@@ -1,4 +1,4 @@
-# Terminal Words
+# SW (Search Word)
 
 A simple and elegant command-line dictionary tool written in Rust.
 
@@ -11,10 +11,17 @@ A simple and elegant command-line dictionary tool written in Rust.
 
 ## Installation
 
+### Via Homebrew (Recommended)
+```bash
+brew tap szupzj18/tap
+brew install sw
+```
+
+### From Source
 1. Clone this repository:
 ```bash
-git clone <repository-url>
-cd terminal_words
+git clone https://github.com/szupzj18/sw.git
+cd sw
 ```
 
 2. Build the project:
@@ -22,7 +29,7 @@ cd terminal_words
 cargo build --release
 ```
 
-3. The binary will be available at `target/release/terminal_words`
+3. The binary will be available at `target/release/sw`
 
 ## Usage
 
@@ -30,33 +37,33 @@ cargo build --release
 
 Look up a word:
 ```bash
-terminal_words <word>
+sw <word>
 ```
 
 Example:
 ```bash
-terminal_words rust
+sw rust
 ```
 
 ### Detailed Information
 
 Use the `-d` or `--detail` flag to get detailed information including synonyms and antonyms:
 ```bash
-terminal_words <word> --detail
+sw <word> --detail
 # or
-terminal_words <word> -d
+sw <word> -d
 ```
 
 Example:
 ```bash
-terminal_words rust --detail
+sw rust --detail
 ```
 
 ## Examples
 
 ### Basic Lookup
 ```bash
-$ terminal_words rust
+$ sw rust
 Looking up: rust
 
 Word: rust
@@ -70,7 +77,7 @@ Part of speech: noun
 
 ### Detailed Lookup
 ```bash
-$ terminal_words rust --detail
+$ sw rust --detail
 Looking up: rust
 
 Word: rust
