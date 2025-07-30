@@ -2,7 +2,7 @@ class Sw < Formula
   desc "A command-line dictionary tool written in Rust"
   homepage "https://github.com/szupzj18/sw"
   url "https://github.com/szupzj18/sw/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "replace-with-actual-sha256"
+  sha256 "2477e7e03e9a2980799c4ec11d2cef6cf567b4fcafb7496dc1e5dee04d02d10f"
   license "MIT"
   head "https://github.com/szupzj18/sw.git", branch: "main"
 
