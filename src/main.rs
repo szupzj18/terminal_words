@@ -31,6 +31,7 @@ struct Phonetic {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Meaning {
     part_of_speech: Option<String>,
     definitions: Vec<Definition>,
