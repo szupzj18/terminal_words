@@ -72,6 +72,21 @@ async fn lookup_word(word: &str) -> Result<Vec<DictionaryResponse>, Box<dyn std:
     }
 }
 
+/// Format a non-empty list as "label item1, item2, ..." or None if empty/missing
+fn format_list(items: &Option<Vec<String>>) -> Option<String> {
+    items
+        .as_ref()
+        .filter(|v| !v.is_empty())
+        .map(|v| v.join(", "))
+}
+
+/// Print a non-empty list with the given indent and label
+fn print_non_empty_list(indent: &str, label: ColoredString, items: &Option<Vec<String>>) {
+    if let Some(text) = format_list(items) {
+        println!("{}{} {}", indent, label, text);
+    }
+}
+
 fn display_word_info(response: &DictionaryResponse, detailed: bool) {
     println!("\n{} {}", "Word:".bright_green().bold(), response.word.bright_white().bold());
     
@@ -79,65 +94,43 @@ fn display_word_info(response: &DictionaryResponse, detailed: bool) {
         println!("{} {}", "Phonetic:".bright_blue(), phonetic.bright_yellow());
     }
     
-    if let Some(phonetics) = &response.phonetics {
-        for phonetic in phonetics {
-            if let Some(text) = &phonetic.text {
-                println!("{} {}", "Pronunciation:".bright_blue(), text.bright_yellow());
-            }
-        }
+    // Use iterator chain to simplify nested Option traversal
+    for text in response.phonetics.iter().flatten().filter_map(|p| p.text.as_ref()) {
+        println!("{} {}", "Pronunciation:".bright_blue(), text.bright_yellow());
     }
     
     println!();
     
     for meaning in &response.meanings {
-        if let Some(pos) = &meaning.part_of_speech {
-            println!("{} {}", "Part of speech:".bright_magenta().bold(), pos.bright_cyan());
-        } else {
-            println!("{} {}", "Part of speech:".bright_magenta().bold(), "unknown".bright_cyan());
-        }
+        // Use unwrap_or to simplify if-else
+        let pos = meaning.part_of_speech.as_deref().unwrap_or("unknown");
+        println!("{} {}", "Part of speech:".bright_magenta().bold(), pos.bright_cyan());
         
-        for (i, definition) in meaning.definitions.iter().enumerate() {
-            println!("  {} {}", format!("{}.", i + 1).bright_green(), definition.definition.white());
+        for (i, def) in meaning.definitions.iter().enumerate() {
+            println!("  {} {}", format!("{}.", i + 1).bright_green(), def.definition.white());
             
-            if let Some(example) = &definition.example {
+            if let Some(example) = &def.example {
                 println!("     {} {}", "Example:".bright_blue(), example.italic());
             }
             
             if detailed {
-                if let Some(synonyms) = &definition.synonyms {
-                    if !synonyms.is_empty() {
-                        println!("     {} {}", "Synonyms:".bright_yellow(), synonyms.join(", "));
-                    }
-                }
-                
-                if let Some(antonyms) = &definition.antonyms {
-                    if !antonyms.is_empty() {
-                        println!("     {} {}", "Antonyms:".bright_red(), antonyms.join(", "));
-                    }
-                }
+                print_non_empty_list("     ", "Synonyms:".bright_yellow(), &def.synonyms);
+                print_non_empty_list("     ", "Antonyms:".bright_red(), &def.antonyms);
             }
         }
         
         if detailed {
-            if let Some(synonyms) = &meaning.synonyms {
-                if !synonyms.is_empty() {
-                    println!("  {} {}", "Synonyms:".bright_yellow(), synonyms.join(", "));
-                }
-            }
-            
-            if let Some(antonyms) = &meaning.antonyms {
-                if !antonyms.is_empty() {
-                    println!("  {} {}", "Antonyms:".bright_red(), antonyms.join(", "));
-                }
-            }
+            print_non_empty_list("  ", "Synonyms:".bright_yellow(), &meaning.synonyms);
+            print_non_empty_list("  ", "Antonyms:".bright_red(), &meaning.antonyms);
         }
         
         println!();
     }
     
+    // Use and_then to simplify nested Option access
     if detailed {
-        if let Some(source_urls) = &response.source_urls {
-            println!("{} {}", "Source:".bright_blue(), source_urls[0].underline());
+        if let Some(url) = response.source_urls.as_ref().and_then(|urls| urls.first()) {
+            println!("{} {}", "Source:".bright_blue(), url.underline());
         }
     }
 }
@@ -283,6 +276,32 @@ mod tests {
         assert!(!is_exit_command(""));
         assert!(!is_exit_command("quit "));
         assert!(!is_exit_command("Q")); // Case sensitive
+    }
+
+    // ==================== Format List Tests ====================
+
+    #[test]
+    fn test_format_list_with_items() {
+        let items = Some(vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+        assert_eq!(format_list(&items), Some("a, b, c".to_string()));
+    }
+
+    #[test]
+    fn test_format_list_with_single_item() {
+        let items = Some(vec!["only".to_string()]);
+        assert_eq!(format_list(&items), Some("only".to_string()));
+    }
+
+    #[test]
+    fn test_format_list_with_empty_vec() {
+        let items: Option<Vec<String>> = Some(vec![]);
+        assert_eq!(format_list(&items), None);
+    }
+
+    #[test]
+    fn test_format_list_with_none() {
+        let items: Option<Vec<String>> = None;
+        assert_eq!(format_list(&items), None);
     }
 
     // ==================== JSON Deserialization Tests ====================
