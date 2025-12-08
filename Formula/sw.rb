@@ -1,10 +1,10 @@
 class Sw < Formula
   desc "A command-line dictionary tool written in Rust"
-  homepage "https://github.com/szupzj18/sw"
-  url "https://github.com/szupzj18/sw/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "2477e7e03e9a2980799c4ec11d2cef6cf567b4fcafb7496dc1e5dee04d02d10f"
+  homepage "https://github.com/szupzj18/terminal_words"
+  url "https://github.com/szupzj18/terminal_words/archive/refs/tags/v0.1.1.tar.gz"
+  sha256 "PLACEHOLDER_SHA256"
   license "MIT"
-  head "https://github.com/szupzj18/sw.git", branch: "main"
+  head "https://github.com/szupzj18/terminal_words.git", branch: "main"
 
   depends_on "rust" => :build
 
