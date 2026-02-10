@@ -19,8 +19,8 @@ struct Cli {
     interactive: bool,
     
     /// Maximum number of definitions to show per part of speech (default: 3, use -d for all)
-    #[arg(short = 'n', long, default_value = "3")]
-    limit: usize,
+    #[arg(short = 'n', long, default_value = "3", value_parser = clap::value_parser!(u64).range(1..))]
+    limit: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -63,8 +63,8 @@ struct License {
 }
 
 async fn lookup_word(word: &str) -> Result<Vec<DictionaryResponse>, Box<dyn std::error::Error>> {
-    let url = format!("https://api.dictionaryapi.dev/api/v2/entries/en/{}"
-, word);
+    let encoded = urlencoding::encode(word);
+    let url = format!("https://api.dictionaryapi.dev/api/v2/entries/en/{}", encoded);
     
     let response = reqwest::get(&url).await?;
     
@@ -96,7 +96,7 @@ struct DisplayOptions {
     /// Show all content (definitions, examples, synonyms, antonyms)
     detailed: bool,
     /// Maximum definitions per part of speech (ignored if detailed is true)
-    limit: usize,
+    limit: u64,
 }
 
 fn display_word_info(response: &DictionaryResponse, options: &DisplayOptions) {
@@ -120,7 +120,7 @@ fn display_word_info(response: &DictionaryResponse, options: &DisplayOptions) {
         
         // Determine how many definitions to show
         let total_defs = meaning.definitions.len();
-        let show_count = if options.detailed { total_defs } else { total_defs.min(options.limit) };
+        let show_count = if options.detailed { total_defs } else { total_defs.min(options.limit as usize) };
         
         for (i, def) in meaning.definitions.iter().take(show_count).enumerate() {
             println!("  {} {}", format!("{}.", i + 1).bright_green(), def.definition.white());
@@ -182,7 +182,9 @@ async fn run_interactive_mode(options: &DisplayOptions) {
     
     loop {
         print!("{} ", "sw>".bright_green().bold());
-        io::stdout().flush().unwrap();
+        if io::stdout().flush().is_err() {
+            break;
+        }
         
         let mut input = String::new();
         match io::stdin().read_line(&mut input) {
@@ -313,6 +315,12 @@ mod tests {
         assert_eq!(cli.word, Some("hello".to_string()));
         assert_eq!(cli.limit, 2);
         assert!(cli.detail); // detail mode ignores limit
+    }
+
+    #[test]
+    fn test_cli_rejects_limit_zero() {
+        let result = Cli::try_parse_from(["sw", "hello", "-n", "0"]);
+        assert!(result.is_err());
     }
 
     // ==================== Exit Command Tests ====================
