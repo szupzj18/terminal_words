@@ -10,13 +10,17 @@ struct Cli {
     /// Word to look up
     word: Option<String>,
     
-    /// Show detailed information
+    /// Show detailed information (all definitions, examples, synonyms, antonyms)
     #[arg(short, long)]
     detail: bool,
     
     /// Interactive mode - continuous queries without exiting
     #[arg(short, long)]
     interactive: bool,
+    
+    /// Maximum number of definitions to show per part of speech (default: 3, use -d for all)
+    #[arg(short = 'n', long, default_value = "3", value_parser = clap::value_parser!(u64).range(1..))]
+    limit: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -59,8 +63,8 @@ struct License {
 }
 
 async fn lookup_word(word: &str) -> Result<Vec<DictionaryResponse>, Box<dyn std::error::Error>> {
-    let url = format!("https://api.dictionaryapi.dev/api/v2/entries/en/{}"
-, word);
+    let encoded = urlencoding::encode(word);
+    let url = format!("https://api.dictionaryapi.dev/api/v2/entries/en/{}", encoded);
     
     let response = reqwest::get(&url).await?;
     
@@ -87,7 +91,15 @@ fn print_non_empty_list(indent: &str, label: ColoredString, items: &Option<Vec<S
     }
 }
 
-fn display_word_info(response: &DictionaryResponse, detailed: bool) {
+/// Display options for controlling output verbosity
+struct DisplayOptions {
+    /// Show all content (definitions, examples, synonyms, antonyms)
+    detailed: bool,
+    /// Maximum definitions per part of speech (ignored if detailed is true)
+    limit: u64,
+}
+
+fn display_word_info(response: &DictionaryResponse, options: &DisplayOptions) {
     println!("\n{} {}", "Word:".bright_green().bold(), response.word.bright_white().bold());
     
     if let Some(phonetic) = &response.phonetic {
@@ -106,20 +118,33 @@ fn display_word_info(response: &DictionaryResponse, detailed: bool) {
         let pos = meaning.part_of_speech.as_deref().unwrap_or("unknown");
         println!("{} {}", "Part of speech:".bright_magenta().bold(), pos.bright_cyan());
         
-        for (i, def) in meaning.definitions.iter().enumerate() {
+        // Determine how many definitions to show
+        let total_defs = meaning.definitions.len();
+        let show_count = if options.detailed { total_defs } else { total_defs.min(options.limit as usize) };
+        
+        for (i, def) in meaning.definitions.iter().take(show_count).enumerate() {
             println!("  {} {}", format!("{}.", i + 1).bright_green(), def.definition.white());
             
-            if let Some(example) = &def.example {
-                println!("     {} {}", "Example:".bright_blue(), example.italic());
+            // In detailed mode: show all examples
+            // In normal mode: only show example for the first definition
+            if options.detailed || i == 0 {
+                if let Some(example) = &def.example {
+                    println!("     {} {}", "Example:".bright_blue(), example.italic());
+                }
             }
             
-            if detailed {
+            if options.detailed {
                 print_non_empty_list("     ", "Synonyms:".bright_yellow(), &def.synonyms);
                 print_non_empty_list("     ", "Antonyms:".bright_red(), &def.antonyms);
             }
         }
         
-        if detailed {
+        // Show hint if there are more definitions
+        if !options.detailed && total_defs > show_count {
+            println!("     {} (+{} more, use -d for all)", "...".dimmed(), total_defs - show_count);
+        }
+        
+        if options.detailed {
             print_non_empty_list("  ", "Synonyms:".bright_yellow(), &meaning.synonyms);
             print_non_empty_list("  ", "Antonyms:".bright_red(), &meaning.antonyms);
         }
@@ -128,20 +153,20 @@ fn display_word_info(response: &DictionaryResponse, detailed: bool) {
     }
     
     // Use and_then to simplify nested Option access
-    if detailed {
+    if options.detailed {
         if let Some(url) = response.source_urls.as_ref().and_then(|urls| urls.first()) {
             println!("{} {}", "Source:".bright_blue(), url.underline());
         }
     }
 }
 
-async fn lookup_and_display(word: &str, detailed: bool) {
+async fn lookup_and_display(word: &str, options: &DisplayOptions) {
     println!("{} {}", "Looking up:".bright_green(), word.bright_white().bold());
     
     match lookup_word(word).await {
         Ok(definitions) => {
             for definition in definitions {
-                display_word_info(&definition, detailed);
+                display_word_info(&definition, options);
             }
         }
         Err(e) => {
@@ -150,14 +175,16 @@ async fn lookup_and_display(word: &str, detailed: bool) {
     }
 }
 
-async fn run_interactive_mode(detailed: bool) {
+async fn run_interactive_mode(options: &DisplayOptions) {
     println!("{}", "🔄 Interactive Mode".bright_cyan().bold());
     println!("{}", "Type a word to look up, or 'q'/'quit'/'exit' to exit.".bright_blue());
     println!();
     
     loop {
         print!("{} ", "sw>".bright_green().bold());
-        io::stdout().flush().unwrap();
+        if io::stdout().flush().is_err() {
+            break;
+        }
         
         let mut input = String::new();
         match io::stdin().read_line(&mut input) {
@@ -179,7 +206,7 @@ async fn run_interactive_mode(detailed: bool) {
                     break;
                 }
                 
-                lookup_and_display(word, detailed).await;
+                lookup_and_display(word, options).await;
             }
             Err(e) => {
                 println!("{} {}", "Error reading input:".bright_red(), e);
@@ -198,12 +225,17 @@ fn is_exit_command(input: &str) -> bool {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     
+    let options = DisplayOptions {
+        detailed: cli.detail,
+        limit: cli.limit,
+    };
+    
     if cli.interactive {
         // Interactive mode
-        run_interactive_mode(cli.detail).await;
+        run_interactive_mode(&options).await;
     } else if let Some(word) = cli.word {
         // Single word lookup mode
-        lookup_and_display(&word, cli.detail).await;
+        lookup_and_display(&word, &options).await;
     } else {
         // No word provided and not in interactive mode
         println!("{}", "Error: Please provide a word to look up, or use -i for interactive mode.".bright_red());
@@ -227,6 +259,7 @@ mod tests {
         assert_eq!(cli.word, Some("hello".to_string()));
         assert!(!cli.detail);
         assert!(!cli.interactive);
+        assert_eq!(cli.limit, 3); // default limit
     }
 
     #[test]
@@ -259,6 +292,35 @@ mod tests {
         assert_eq!(cli.word, None);
         assert!(!cli.detail);
         assert!(!cli.interactive);
+        assert_eq!(cli.limit, 3); // default limit
+    }
+
+    #[test]
+    fn test_cli_with_limit_flag() {
+        let cli = Cli::try_parse_from(["sw", "hello", "-n", "5"]).unwrap();
+        assert_eq!(cli.word, Some("hello".to_string()));
+        assert_eq!(cli.limit, 5);
+    }
+
+    #[test]
+    fn test_cli_with_limit_long_flag() {
+        let cli = Cli::try_parse_from(["sw", "hello", "--limit", "10"]).unwrap();
+        assert_eq!(cli.word, Some("hello".to_string()));
+        assert_eq!(cli.limit, 10);
+    }
+
+    #[test]
+    fn test_cli_with_limit_and_detail() {
+        let cli = Cli::try_parse_from(["sw", "hello", "-n", "2", "-d"]).unwrap();
+        assert_eq!(cli.word, Some("hello".to_string()));
+        assert_eq!(cli.limit, 2);
+        assert!(cli.detail); // detail mode ignores limit
+    }
+
+    #[test]
+    fn test_cli_rejects_limit_zero() {
+        let result = Cli::try_parse_from(["sw", "hello", "-n", "0"]);
+        assert!(result.is_err());
     }
 
     // ==================== Exit Command Tests ====================
